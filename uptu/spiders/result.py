@@ -11,7 +11,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import time
 import xlwt
-from Tkinter import *
 from ocr.testing import read_captcha
 import cv2,urllib
 import numpy as np
@@ -164,7 +163,7 @@ class Result(scrapy.Spider):
         self.add_in_sheet(item)
 
     def parse(self, response):
-        while self.roll < 1409110903:
+        while self.roll < 1409110910:
             self.driver.get('http://new.aktu.co.in/')
             try:
                 WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img')))
@@ -177,8 +176,7 @@ class Result(scrapy.Spider):
             captcha_url = format(resp.xpath('//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img/@src').extract())
             url = "http://new.aktu.co.in/" + captcha_url[3:-2]
             print url
-            captcha = url_to_image(url)
-            captcha_value = read_captcha(captcha)
+            captcha_value = read_captcha(url_to_image(url))
             print captcha_value
             captcha_input = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$txtCaptcha')
             captcha_input.send_keys(captcha_value)
