@@ -19,12 +19,14 @@ scraper for UPTU btech result .
 
 4. Now, run the following git clone(specify a directory)
    
-  https://github.com/ncs-jss/uptu-result.git uptu
+  https://github.com/JINDALG/uptu-result.git uptu
 
-5. Move to the directory in which you cloned the git repository.
+5. Firefox is required for this. Download Firefox.
+
+6. Move to the directory in which you cloned the git repository.
 
    cd uptu
 
-6. You are all set to run the development server
+7. You are all set to run the development server
 
    scrapy crawl btech
