@@ -14,8 +14,7 @@ import xlwt
 from ocr.testing import read_captcha
 import cv2,urllib
 import numpy as np
-from pyvirtualdisplay import Display
-
+from Tkinter import *
 
 
 def url_to_image(url):
@@ -28,30 +27,53 @@ def url_to_image(url):
     # return the image
     return image
 
-
 class Result(scrapy.Spider):
     name = "btech"
-    roll = 1309110001
-    sheet = None
-    workbook = None
+    s_roll = 1309110001
+    e_roll = None
     count = 1
     top = [["",0],["",1000]]
     allowed_domains = ['http://new.aktu.co.in/']
     start_urls = ['http://new.aktu.co.in/']
 
-    def __init__(self, filename=None):
+    def fetch(self,entries):
+        sroll = entries[1]
+        self.s_roll = int(entries[0][1].get())
+        self.e_roll  = int(entries[1][1].get())
+        print self.s_roll+1
+        self.root.destroy()
 
+    def makeform(self,fields):
+       entries = []
+       for field in fields:
+          row = Frame(self.root)
+          lab = Label(row, width=15, text=field, anchor='w')
+          ent = Entry(row)
+          row.pack(side=TOP, fill=X, padx=5, pady=10)
+          lab.pack(side=TOP)
+          ent.pack(side=TOP, expand=YES, fill=X , pady=10)
+          entries.append((field, ent))
+       return entries
+
+    def __init__(self, filename=None):
+        fields = 'First Roll No.' ,'Last Roll No.'
+        self.root = Tk()
+        self.root.title('Result')
+        self.root.geometry("200x200")
+        ents = self.makeform( fields)
+        self.root.bind('<Return>', (lambda event, e=ents: self.fetch(e)))   
+        b1 = Button(self.root, text='submit',
+                command=(lambda e=ents: self.fetch(e)))
+        b1.pack(side=TOP, padx=5, pady=5)
+        self.root.mainloop()
     	self.workbook = xlwt.Workbook()
         self.sheet = self.workbook.add_sheet('Sheet_1')
-        self.display = Display(visible=0, size=(800, 600))
-        self.display.start()
         self.driver = webdriver.Firefox()
         dispatcher.connect(self.spider_closed, signals.spider_closed)
 
     def spider_closed(self, spider):
         self.workbook.save('result.xls')
         self.driver.close()
-        self.display.stop()
 
     def add_in_sheet(self,item):
         try :
@@ -138,7 +160,6 @@ class Result(scrapy.Spider):
             t2  = format(resp.xpath('//*[@id="Pane0_content"]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[3]/td[4]/b/text()').extract())
             item[item['s2']] = t1[3:-2] + ' , '  + t2[3:-2]
 
-
             temp = format(resp.xpath('//*[@id="Pane0_content"]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[4]/td[2]/b/text()').extract())
             item['s3'] = temp[3:-2]
             t1 = format(resp.xpath('//*[@id="Pane0_content"]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[4]/td[3]/b/text()').extract())
@@ -173,7 +194,7 @@ class Result(scrapy.Spider):
             return
 
     def parse(self, response):
-        while self.roll <= 1309110122:
+        while self.s_roll <= self.e_roll:
             self.driver.get('http://new.aktu.co.in/')
             try:
                 WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img')))
@@ -182,7 +203,7 @@ class Result(scrapy.Spider):
 	        # Sync scrapy and selenium so they agree on the page we're looking at then let scrapy take over
             resp = TextResponse(url=self.driver.current_url, body=self.driver.page_source, encoding='utf-8');
             rollno = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$TextBox1')
-            rollno.send_keys(self.roll)
+            rollno.send_keys(self.s_roll)
             captcha_url = format(resp.xpath('//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img/@src').extract())
             url = "http://new.aktu.co.in/" + captcha_url[3:-2]
             print url
@@ -198,7 +219,7 @@ class Result(scrapy.Spider):
             if "Incorrect Code" in format(resp.xpath('*').extract()):
                 continue
             self.parse_result(self.driver.current_url)
-            self.roll += 1
+            self.s_roll += 1
         self.count +=3
         self.sheet.write(self.count,0,"First")
         self.sheet.write(self.count,1,self.top[0][0])
