@@ -15,6 +15,7 @@ from ocr.testing import read_captcha
 import cv2,urllib
 import numpy as np
 from Tkinter import *
+from pyvirtualdisplay import Display
 
 
 def url_to_image(url):
@@ -66,14 +67,18 @@ class Result(scrapy.Spider):
                 command=(lambda e=ents: self.fetch(e)))
         b1.pack(side=TOP, padx=5, pady=5)
         self.root.mainloop()
+        self.display = Display(visible=0, size=(800, 600))
+        self.display.start()
         self.driver = webdriver.Chrome()
         #self.driver = webdriver.Firefox()
+
         self.workbook = xlwt.Workbook()
         self.sheet = self.workbook.add_sheet('Sheet_1')
         dispatcher.connect(self.spider_closed, signals.spider_closed)
 
     def spider_closed(self, spider):
         self.driver.close()
+        self.display.stop()
         self.workbook.save('result.xls')
 
     def add_in_sheet(self,item):
@@ -129,7 +134,6 @@ class Result(scrapy.Spider):
                 WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_imgstud"]')))
             except TimeoutException:
                 print "result not found"
-                input("result page")
                 return 0
             # Sync scrapy and selenium so they agree on the page we're looking at then let scrapy take over
             resp = TextResponse(url=self.driver.current_url, body=self.driver.page_source, encoding='utf-8');
