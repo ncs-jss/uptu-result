@@ -19,7 +19,7 @@ scraper for UPTU btech result .
 
 4. Now, run the following git clone(specify a directory)
    
-  https://github.com/ncs-jss/uptu-result.git uptu
+  https://github.com/JINDALG/uptu-result.git uptu
 
 5. Move to the directory in which you cloned the git repository.
 

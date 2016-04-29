@@ -15,6 +15,7 @@ from ocr.testing import read_captcha
 import cv2,urllib
 import numpy as np
 from Tkinter import *
+from pyvirtualdisplay import Display
 
 
 def url_to_image(url):
@@ -66,17 +67,23 @@ class Result(scrapy.Spider):
                 command=(lambda e=ents: self.fetch(e)))
         b1.pack(side=TOP, padx=5, pady=5)
         self.root.mainloop()
-    	self.workbook = xlwt.Workbook()
+        self.display = Display(visible=0, size=(800, 600))
+        self.display.start()
+        self.driver = webdriver.Chrome()
+        #self.driver = webdriver.Firefox()
+
+        self.workbook = xlwt.Workbook()
         self.sheet = self.workbook.add_sheet('Sheet_1')
-        self.driver = webdriver.Firefox()
         dispatcher.connect(self.spider_closed, signals.spider_closed)
 
     def spider_closed(self, spider):
-        self.workbook.save('result.xls')
         self.driver.close()
+        self.display.stop()
+        self.workbook.save('result.xls')
 
     def add_in_sheet(self,item):
         try :
+            
             self.count += 1
             if self.count == 2:
                 self.sheet.write(0,0,'Name')
@@ -113,6 +120,7 @@ class Result(scrapy.Spider):
             if int(item['tot']) < self.top[1][1]:
                 self.top[1][1] = int(item['tot']) 
                 self.top[1][0] = item['name']
+            
         except :
             return
         
@@ -121,12 +129,12 @@ class Result(scrapy.Spider):
         try :
             item = {}
             # Load the current page into Selenium
-            self.driver.get(response)
+            # self.driver.get(response)
             try:
-                WebDriverWait(self.driver, 40).until(EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_imgstud"]')))
+                WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_imgstud"]')))
             except TimeoutException:
-                print "Time out"
-                return
+                print "result not found"
+                return 0
             # Sync scrapy and selenium so they agree on the page we're looking at then let scrapy take over
             resp = TextResponse(url=self.driver.current_url, body=self.driver.page_source, encoding='utf-8');
             temp = format(resp.xpath('//*[@id="lblname"]/text()').extract())
@@ -190,40 +198,54 @@ class Result(scrapy.Spider):
             print temp[5:-7]
             item['tot'] = temp[5:-7]
             self.add_in_sheet(item)
-        except :
-            return
+            return 1
+        except :          
+            return 1
+
+    def fill_captcha(self,resp):
+        captcha_url = format(resp.xpath('//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img/@src').extract())
+        url = "http://new.aktu.co.in/" + captcha_url[3:-2]
+        captcha_value = read_captcha(url_to_image(url))
+        print captcha_value
+        captcha_input = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$txtCaptcha')
+        captcha_input.clear()
+        captcha_input.send_keys(captcha_value)
+        submit = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$btnSubmit')
+        actions = ActionChains(self.driver)
+        time.sleep(3)
+        actions.click(submit)
+        actions.perform()
+        resp = TextResponse(url=self.driver.current_url, body=self.driver.page_source, encoding='utf-8');
+        return resp
 
     def parse(self, response):
-        while self.s_roll <= self.e_roll:
-            self.driver.get('http://new.aktu.co.in/')
-            try:
-                WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img')))
-            except:
-                continue
-	        # Sync scrapy and selenium so they agree on the page we're looking at then let scrapy take over
-            resp = TextResponse(url=self.driver.current_url, body=self.driver.page_source, encoding='utf-8');
-            rollno = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$TextBox1')
-            rollno.send_keys(self.s_roll)
-            captcha_url = format(resp.xpath('//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img/@src').extract())
-            url = "http://new.aktu.co.in/" + captcha_url[3:-2]
-            print url
-            captcha_value = read_captcha(url_to_image(url))
-            print captcha_value
-            captcha_input = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$txtCaptcha')
-            captcha_input.send_keys(captcha_value)
-            submit = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$btnSubmit')
-            actions = ActionChains(self.driver)
-            actions.click(submit)
-            actions.perform()
-            resp = TextResponse(url=self.driver.current_url, body=self.driver.page_source, encoding='utf-8');
-            if "Incorrect Code" in format(resp.xpath('*').extract()):
-                continue
-            self.parse_result(self.driver.current_url)
-            self.s_roll += 1
-        self.count +=3
-        self.sheet.write(self.count,0,"First")
-        self.sheet.write(self.count,1,self.top[0][0])
-        self.sheet.write(self.count+1,0,"Last")
-        self.sheet.write(self.count+1,1,self.top[1][0])
-        return
+        try :
+            while self.s_roll <= self.e_roll:
+                self.driver.get('http://new.aktu.co.in/')
+                try:
+                    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_divSearchRes"]/center/table/tbody/tr[4]/td/center/div/div/img')))
+                except:
+                    continue
+    	        # Sync scrapy and selenium so they agree on the page we're looking at then let scrapy take over
+                resp = TextResponse(url=self.driver.current_url, body=self.driver.page_source, encoding='utf-8');
+                rollno = self.driver.find_element_by_name('ctl00$ContentPlaceHolder1$TextBox1')
+                rollno.send_keys(self.s_roll)
+                try :
+                    resp = self.fill_captcha(resp)
+                    print format(resp.xpath('//*[@id="ContentPlaceHolder1_Label1"]/text()').extract())
+                    while "Incorrect" in format(resp.xpath('//*[@id="ContentPlaceHolder1_Label1"]/text()').extract()):
+                        resp = self.fill_captcha(resp)
+                except :
+                    continue
+                self.parse_result(self.driver.current_url)
+                self.s_roll += 1
+            self.count +=3
+            self.sheet.write(self.count,0,"First")
+            self.sheet.write(self.count,1,self.top[0][0])
+            self.sheet.write(self.count+1,0,"Last")
+            self.sheet.write(self.count+1,1,self.top[1][0])
+        except :
+            self.parse(response)
+        finally :
+            return
 
