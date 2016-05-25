@@ -2,6 +2,7 @@
 
 scraper for UPTU btech result .
 
+Scraped data will store in Excel file.
 
 # You can use this application on Windows as well as Ubuntu
 
